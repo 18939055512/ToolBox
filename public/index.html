@@ -386,6 +386,7 @@ const SUPABASE_URL = 'https://sihxivtcrbceebmphiye.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_AI1YXr9wzFjTvgtMycMOmg_wbI153TO';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const STORAGE_BUCKET = 'tool-files';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/18939055512/ToolBox/main/tools';
 // ===== 配置结束 =====
 
 let allTools = [];
@@ -397,6 +398,43 @@ let uploadedFileName = null;
 let dirFiles = []; // 目录型工具的文件列表
 
 // ===== 工具列表 =====
+// 下载回退：优先 Supabase Storage，404 则回退到 GitHub Raw
+async function tryDownload(e, el) {
+  e.preventDefault();
+  const sbUrl = el.href;
+  const fallback = el.dataset.fallback;
+  const fileName = el.getAttribute('download');
+  try {
+    const resp = await fetch(sbUrl, { method: 'GET' });
+    if (resp.ok && resp.status !== 404) {
+      const blob = await resp.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return;
+    }
+  } catch (err) {}
+  // 回退到 GitHub Raw
+  if (fallback) {
+    try {
+      const resp = await fetch(fallback);
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+      }
+    } catch (err) {}
+    // 直接跳转 GitHub Raw
+    window.open(fallback, '_blank');
+  }
+}
+
 async function loadTools() {
   try {
     const { data, error } = await sb.from('tools').select('*').order('created_at', { ascending: false });
@@ -480,16 +518,18 @@ async function showDetail(toolId) {
         <div class="modal-section-title">文件列表（点击下载）</div>
         <div class="modal-files">
           ${dirFiles.map(f => {
-            const url = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${tool.file_name}/${f}`;
-            return `<a class="modal-file" href="${url}" download="${f}" target="_blank">${esc(f)}</a>`;
+            const sbUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${tool.file_name}/${f}`;
+            const ghUrl = `${GITHUB_RAW}/${tool.file_name}/${f}`;
+            return `<a class="modal-file" href="${sbUrl}" data-fallback="${ghUrl}" onclick="tryDownload(event,this)" download="${f}">${esc(f)}</a>`;
           }).join('')}
         </div>
       </div>`;
   } else {
-    const url = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${tool.file_name}`;
+    const sbUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${tool.file_name}`;
+    const ghUrl = `${GITHUB_RAW}/${tool.file_name}`;
     downloadHtml = `
       <div class="modal-section">
-        <a class="modal-download-btn" href="${url}" download="${tool.file_name}" target="_blank">⬇ 下载文件</a>
+        <a class="modal-download-btn" href="${sbUrl}" data-fallback="${ghUrl}" onclick="tryDownload(event,this)" download="${tool.file_name}">⬇ 下载文件</a>
       </div>`;
   }
 
