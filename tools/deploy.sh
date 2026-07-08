@@ -23,10 +23,9 @@ set -e
 # 格式: 服务名=应用目录|jar文件名|管理脚本|日志文件
 # 管理脚本和日志文件默认都是 manage_jar.sh / log.log，可覆盖
 SERVICES=(
-    "gcdw=/data/wzb/gcdw|gcdw.jar|manage_jar.sh|log.log"
-    # 加新项目示例（取消下面注释并修改即可）:
-    # "java=/data/wzb/java|java.jar|manage_jar.sh|log.log"
-    # "safe=/data/wzb/safe|safe.jar|manage_jar.sh|log.log"
+    # 示例配置（修改为你的实际服务信息）:
+    # "app1=/opt/app/app1|app1.jar|manage_jar.sh|log.log"
+    # "app2=/opt/app/app2|app2.jar|manage_jar.sh|log.log"
 )
 LOG_LINES=500
 # ===== 配置区结束 =====

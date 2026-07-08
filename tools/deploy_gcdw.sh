@@ -15,9 +15,9 @@
 set -e
 
 # ===== 配置区 =====
-APP_DIR="/data/wzb/gcdw"               # 应用目录
-JAR_NAME="gcdw.jar"                     # jar 文件名
-SOURCE_JAR="/tmp/gcdw.jar"              # 新 jar 包来源路径
+APP_DIR="/opt/app/your-app"               # 应用目录（修改为你的实际路径）
+JAR_NAME="your-app.jar"                   # jar 文件名（修改为你的实际 jar 名）
+SOURCE_JAR="/tmp/your-app.jar"            # 新 jar 包来源路径
 MANAGE_SCRIPT="manage_jar.sh"           # 管理脚本名称
 LOG_FILE="log.log"                      # 日志文件名
 LOG_LINES=500                           # 日志跟踪行数
