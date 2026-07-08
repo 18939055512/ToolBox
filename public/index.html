@@ -555,11 +555,56 @@ function toggleAdmin() {
   filterTools(); // 重新渲染卡片（显示/隐藏编辑删除按钮）
 }
 
+// ===== 敏感信息检测 =====
+const SENSITIVE_PATTERNS = [
+  { re: /\b(192\.168|10\.\d|172\.(1[6-9]|2\d|3[01]))\.\d+\.\d+\b/g, label: '内网IP地址' },
+  { re: /\b(password\s*=\s*["']?\S+|passwd\s*=\s*["']?\S+|pwd\s*=\s*["']?\S+)\b/gi, label: '密码字段' },
+  { re: /\b(https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g, label: '内网URL' },
+  { re: /\b\w+@\w+\.\w+\.(com|cn|net|org)\b/g, label: '邮箱地址' },
+  { re: /\b(1[3-9]\d{9})\b/g, label: '手机号码' },
+  { re: /svn_password|db_password|redis_password|mysql_password|smtp_password/gi, label: '服务密码配置' },
+];
+
+function scanFileContent(content, fileName) {
+  const warnings = [];
+  for (const p of SENSITIVE_PATTERNS) {
+    const matches = content.match(p.re);
+    if (matches && matches.length > 0) {
+      // 过滤掉明显的占位符/示例值
+      const realMatches = matches.filter(m => !/^(xxx|placeholder|your_|example|YOUR_|未知|空|null|none|N\/A|\*)/i.test(m));
+      if (realMatches.length > 0) {
+        warnings.push(`${p.label}: 发现 ${realMatches.length} 处 (${realMatches.slice(0,3).join('、')}${realMatches.length > 3 ? ' 等' : ''})`);
+      }
+    }
+  }
+  return warnings;
+}
+
+async function scanFile(file) {
+  // 只扫描文本类文件
+  const textExts = ['.sh','.py','.bat','.ps1','.json','.yml','.yaml','.xml','.conf','.cfg','.ini','.toml','.env','.txt','.md','.js','.ts','.java','.properties','.sql','.csv'];
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!textExts.includes('.' + ext) && ext !== 'json' && ext !== 'sh' && ext !== 'py' && ext !== 'bat' && ext !== 'ps1') return [];
+  try {
+    const text = await file.text();
+    return scanFileContent(text, file.name);
+  } catch (e) { return []; }
+}
+
 function handleFileSelect(e) {
   const file = e.target.files[0];
   if (!file) return;
-  document.getElementById('uploadStatus').textContent = `已选择: ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
-  uploadedFileName = file.name;
+  scanFile(file).then(warnings => {
+    const statusEl = document.getElementById('uploadStatus');
+    if (warnings.length > 0) {
+      statusEl.innerHTML = `<span style="color:var(--danger)">⚠ 安全警告：${file.name} 含敏感信息！</span><br>${warnings.map(w=>`<span style="color:var(--danger);font-size:12px">${w}</span>`).join('<br>')}<br><span style="font-size:12px;color:var(--text-light)">请清理后再上传，或确认内容无风险后继续</span>`;
+      // 仍然允许上传，但提示需确认
+      uploadedFileName = file.name;
+    } else {
+      statusEl.textContent = `✓ ${file.name} (${(file.size/1024).toFixed(1)} KB) — 安全检查通过`;
+      uploadedFileName = file.name;
+    }
+  });
 }
 
 // 目录型：添加文件上传槽位
@@ -581,7 +626,18 @@ function dirFileChange(idx, e) {
   const file = e.target.files[0];
   dirFiles[idx].file = file;
   dirFiles[idx].name = file.name;
-  document.getElementById(`dirName_${idx}`).textContent = file.name;
+  const nameEl = document.getElementById(`dirName_${idx}`);
+  const statusEl = document.getElementById(`dirStatus_${idx}`);
+  nameEl.textContent = file.name;
+  scanFile(file).then(warnings => {
+    if (warnings.length > 0) {
+      statusEl.innerHTML = `<span style="color:var(--danger)">⚠敏感</span>`;
+      statusEl.title = warnings.join('\n');
+    } else {
+      statusEl.textContent = '✓';
+      statusEl.className = 'status ok';
+    }
+  });
 }
 
 async function uploadSingleFile(file, pathInBucket) {
