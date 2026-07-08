@@ -384,7 +384,7 @@
 // ===== Supabase 配置 =====
 const SUPABASE_URL = 'https://sihxivtcrbceebmphiye.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_AI1YXr9wzFjTvgtMycMOmg_wbI153TO';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const STORAGE_BUCKET = 'tool-files';
 // ===== 配置结束 =====
 
@@ -399,7 +399,7 @@ let dirFiles = []; // 目录型工具的文件列表
 // ===== 工具列表 =====
 async function loadTools() {
   try {
-    const { data, error } = await supabase.from('tools').select('*').order('created_at', { ascending: false });
+    const { data, error } = await sb.from('tools').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     allTools = data || [];
     const cats = new Set();
@@ -562,7 +562,7 @@ function dirFileChange(idx, e) {
 }
 
 async function uploadSingleFile(file, pathInBucket) {
-  const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(pathInBucket, file, { upsert: true });
+  const { data, error } = await sb.storage.from(STORAGE_BUCKET).upload(pathInBucket, file, { upsert: true });
   if (error) throw error;
   return data;
 }
@@ -611,10 +611,10 @@ async function submitTool() {
       };
 
       if (editingTool) {
-        const { error } = await supabase.from('tools').update(record).eq('id', id);
+        const { error } = await sb.from('tools').update(record).eq('id', id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('tools').insert(record);
+        const { error } = await sb.from('tools').insert(record);
         if (error) throw error;
       }
     } else {
@@ -640,10 +640,10 @@ async function submitTool() {
       };
 
       if (editingTool) {
-        const { error } = await supabase.from('tools').update(record).eq('id', id);
+        const { error } = await sb.from('tools').update(record).eq('id', id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('tools').insert(record);
+        const { error } = await sb.from('tools').insert(record);
         if (error) throw error;
       }
     }
@@ -690,13 +690,13 @@ async function deleteTool(toolId) {
     if (tool.is_dir) {
       // 目录型：逐个删除
       for (const f of (tool.dir_files || [])) {
-        await supabase.storage.from(STORAGE_BUCKET).remove([`${tool.file_name}/${f}`]);
+        await sb.storage.from(STORAGE_BUCKET).remove([`${tool.file_name}/${f}`]);
       }
     } else {
-      await supabase.storage.from(STORAGE_BUCKET).remove([tool.file_name]);
+      await sb.storage.from(STORAGE_BUCKET).remove([tool.file_name]);
     }
     // 删除数据库记录
-    const { error } = await supabase.from('tools').delete().eq('id', toolId);
+    const { error } = await sb.from('tools').delete().eq('id', toolId);
     if (error) throw error;
     showToast('已删除');
     await loadTools();
