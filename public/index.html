@@ -397,6 +397,29 @@ let editingTool = null;
 let uploadedFileName = null;
 let dirFiles = []; // 目录型工具的文件列表
 
+// ===== 下载功能（优先 Supabase Storage，回退 GitHub Raw） =====
+async function downloadFile(e, storagePath, fileName) {
+  e.preventDefault();
+  const sbUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${storagePath}`;
+  const ghUrl = `${GITHUB_RAW}/${storagePath}`;
+  // 优先 Supabase
+  for (const url of [sbUrl, ghUrl]) {
+    try {
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+      }
+    } catch (err) {}
+  }
+  showToast('下载失败，请稍后重试', true);
+}
+
 // ===== 工具列表 =====
 
 async function loadTools() {
@@ -482,16 +505,14 @@ async function showDetail(toolId) {
         <div class="modal-section-title">文件列表（点击下载）</div>
         <div class="modal-files">
           ${dirFiles.map(f => {
-            const url = `${GITHUB_RAW}/${tool.file_name}/${f}`;
-            return `<a class="modal-file" href="${url}" download="${f}">${esc(f)}</a>`;
+            return `<a class="modal-file" href="#" onclick="downloadFile(event,'${tool.file_name}/${f}','${f}')">${esc(f)}</a>`;
           }).join('')}
         </div>
       </div>`;
   } else {
-    const url = `${GITHUB_RAW}/${tool.file_name}`;
     downloadHtml = `
       <div class="modal-section">
-        <a class="modal-download-btn" href="${url}" download="${tool.file_name}">⬇ 下载文件</a>
+        <a class="modal-download-btn" href="#" onclick="downloadFile(event,'${tool.file_name}','${tool.file_name}')">⬇ 下载文件</a>
       </div>`;
   }
 
