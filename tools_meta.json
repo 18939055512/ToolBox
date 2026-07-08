@@ -1,0 +1,39 @@
+[
+  {
+    "id": "deploy",
+    "name": "通用一键部署脚本",
+    "file": "deploy.sh",
+    "category": "部署",
+    "tags": ["部署", "Java", "重启", "备份"],
+    "description": "通用版一键部署脚本，备份→替换→重启→验证→日志。支持多服务切换，加新项目只需在 SERVICES 数组加一行配置。",
+    "usage": "sh deploy.sh <服务名> [--skip-confirm] [--no-log] [--jar-path PATH]",
+    "platform": "Linux",
+    "language": "Shell",
+    "author": "wzb"
+  },
+  {
+    "id": "deploy_gcdw",
+    "name": "gcdw专用部署脚本",
+    "file": "deploy_gcdw.sh",
+    "category": "部署",
+    "tags": ["部署", "gcdw", "重启", "备份"],
+    "description": "gcdw 服务专用一键部署脚本，自动备份当前jar、替换新包、sudo重启、验证进程、跟踪日志。",
+    "usage": "sh deploy_gcdw.sh [--skip-confirm] [--no-log]",
+    "platform": "Linux",
+    "language": "Shell",
+    "author": "wzb"
+  },
+  {
+    "id": "svn_monitor",
+    "name": "SVN代码监听器",
+    "file": "svn_monitor",
+    "isDir": true,
+    "category": "监控",
+    "tags": ["SVN", "监控", "通知", "Windows"],
+    "description": "Windows SVN 提交监听工具，每小时自动扫描所有 SVN 项目，有新提交时弹窗通知。支持 44 个项目，零外部依赖。",
+    "usage": "运行 install.bat 安装，自动创建计划任务每小时运行",
+    "platform": "Windows",
+    "language": "Python",
+    "author": "wzb"
+  }
+]

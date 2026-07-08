@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工具管理站</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card-bg: #fff;
+    --primary: #3b82f6;
+    --primary-dark: #2563eb;
+    --primary-light: #dbeafe;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --radius: 12px;
+    --tag-bg: #eff6ff;
+    --tag-text: #3b82f6;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --danger-bg: #fef2f2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* 顶栏 */
+  .header {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-title {
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-title .icon { font-size: 22px; }
+  .header-stats { font-size: 13px; color: var(--text-light); }
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    width: 240px;
+    transition: border-color 0.2s;
+  }
+  .search-box:focus-within { border-color: var(--primary); }
+  .search-box input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 14px;
+    width: 100%;
+  }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .admin-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-light);
+    transition: all 0.2s;
+  }
+  .admin-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .admin-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  /* 分类标签栏 */
+  .category-bar {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .cat-btn {
+    padding: 5px 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-light);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cat-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .cat-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .cat-label { font-size: 12px; color: var(--text-light); font-weight: 600; }
+
+  /* 主内容区 */
+  .main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+  /* 工具卡片 */
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+  }
+  .tool-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tool-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .tool-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .tool-name { font-size: 15px; font-weight: 600; }
+  .tool-platform { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+  .platform-Linux { background: #fef3c7; color: #92400e; }
+  .platform-Windows { background: #dbeafe; color: #1e40af; }
+  .tool-desc {
+    font-size: 13px; color: var(--text-light); line-height: 1.5; margin-bottom: 10px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .tool-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tool-tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--tag-bg); color: var(--tag-text); }
+  .tool-meta { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-light); }
+  .tool-lang { padding: 2px 6px; border-radius: 4px; background: #f1f5f9; font-weight: 500; }
+
+  /* 管理卡片上的操作按钮 */
+  .tool-card-admin { display: flex; gap: 6px; margin-top: 10px; }
+  .tool-action-btn {
+    padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);
+    font-size: 12px; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--text-light);
+  }
+  .tool-action-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .tool-action-btn.danger { color: var(--danger); }
+  .tool-action-btn.danger:hover { border-color: var(--danger); background: var(--danger-bg); }
+
+  /* 模态框 */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 200;
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--card-bg); border-radius: var(--radius);
+    width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto;
+    padding: 24px; position: relative;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-light);
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .modal-section { margin-bottom: 14px; }
+  .modal-section-title { font-size: 13px; font-weight: 600; color: var(--text-light); margin-bottom: 4px; }
+  .modal-usage {
+    background: #1e293b; color: #e2e8f0; padding: 12px 14px; border-radius: 8px;
+    font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.1);
+    border: none; color: #94a3b8; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.2); color: #e2e8f0; }
+  .modal-preview {
+    background: #1e293b; color: #e2e8f0; padding: 12px 14px; border-radius: 8px;
+    font-family: 'Consolas', monospace; font-size: 12px; line-height: 1.5;
+    overflow-x: auto; max-height: 180px; overflow-y: auto; white-space: pre;
+  }
+  .modal-download-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--primary); color: #fff; padding: 10px 18px;
+    border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .modal-download-btn:hover { background: var(--primary-dark); }
+  .modal-files { display: flex; flex-wrap: wrap; gap: 6px; }
+  .modal-file {
+    font-size: 12px; padding: 4px 10px; border-radius: 4px;
+    background: var(--bg); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; text-decoration: none; color: var(--text);
+  }
+  .modal-file:hover { border-color: var(--primary); color: var(--primary); }
+  .modal-info-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13px; }
+  .modal-info-label { color: var(--text-light); font-weight: 600; }
+  .modal-info-value { color: var(--text); }
+
+  /* 管理表单 */
+  .admin-form { margin-top: 20px; }
+  .admin-form h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+  .form-group { margin-bottom: 12px; }
+  .form-label { font-size: 13px; font-weight: 600; color: var(--text-light); margin-bottom: 4px; display: block; }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--primary); }
+  .form-textarea { min-height: 80px; resize: vertical; font-family: inherit; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-submit {
+    padding: 10px 24px; background: var(--primary); color: #fff; border: none;
+    border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .form-submit:hover { background: var(--primary-dark); }
+  .form-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .upload-area {
+    border: 2px dashed var(--border); border-radius: 8px; padding: 20px;
+    text-align: center; cursor: pointer; transition: border-color 0.2s; position: relative;
+  }
+  .upload-area:hover { border-color: var(--primary); }
+  .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-area .upload-text { font-size: 14px; color: var(--text-light); }
+  .upload-area .upload-icon { font-size: 28px; margin-bottom: 6px; }
+  .upload-progress { font-size: 12px; color: var(--success); margin-top: 6px; }
+  .dir-upload-area { display: flex; flex-direction: column; gap: 8px; }
+  .dir-file-item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 10px; border-radius: 6px; background: var(--bg); }
+  .dir-file-item .name { flex: 1; }
+  .dir-file-item .status { font-size: 11px; }
+  .dir-file-item .status.ok { color: var(--success); }
+  .dir-file-item .status.err { color: var(--danger); }
+  .add-file-btn {
+    padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);
+    font-size: 12px; cursor: pointer; background: transparent; color: var(--text-light);
+  }
+  .add-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* 空状态 */
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--text-light); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+  .empty-state p { font-size: 14px; }
+
+  /* 提示消息 */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: #fff; padding: 10px 20px; border-radius: 8px;
+    font-size: 14px; z-index: 300; opacity: 0; transition: opacity 0.3s;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--danger); }
+
+  /* 响应式 */
+  @media (max-width: 768px) {
+    .header { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+    .search-box { width: 100%; order: 3; }
+    .main { padding: 16px; }
+    .tool-grid { grid-template-columns: 1fr; }
+    .modal { width: 95%; padding: 16px; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 顶栏 -->
+<div class="header">
+  <div class="header-title"><span class="icon">🧰</span> ToolBox</div>
+  <div class="header-stats" id="stats"></div>
+  <div class="search-box">
+    <span>🔍</span>
+    <input type="text" id="search" placeholder="搜索工具名称或标签..." oninput="filterTools()">
+  </div>
+  <div class="header-actions">
+    <button class="admin-btn" id="adminToggle" onclick="toggleAdmin()">⚙ 管理</button>
+  </div>
+</div>
+
+<!-- 分类栏 -->
+<div class="category-bar" id="catBar"></div>
+
+<!-- 主内容 -->
+<div class="main">
+  <div class="tool-grid" id="toolGrid"></div>
+  <div class="empty-state" id="emptyState" style="display:none"><div class="icon">📭</div><p>没有找到匹配的工具</p></div>
+
+  <!-- 管理表单（默认隐藏） -->
+  <div class="admin-form" id="adminForm" style="display:none">
+    <h3 id="formTitle">➕ 添加新工具</h3>
+    <div class="form-group">
+      <label class="form-label">文件上传</label>
+      <div id="uploadArea" class="upload-area">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">点击或拖拽上传脚本文件</div>
+        <div class="upload-progress" id="uploadStatus"></div>
+        <input type="file" id="fileInput" onchange="handleFileSelect(event)">
+      </div>
+    </div>
+    <div class="form-group" id="dirUploadGroup" style="display:none">
+      <label class="form-label">目录内文件（逐个上传）</label>
+      <div class="dir-upload-area" id="dirFileList"></div>
+      <button class="add-file-btn" onclick="addDirFileSlot()">+ 添加文件</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">工具ID</label>
+        <input class="form-input" id="f_id" placeholder="英文标识，如 deploy">
+      </div>
+      <div class="form-group">
+        <label class="form-label">工具名称</label>
+        <input class="form-input" id="f_name" placeholder="显示名称，如 通用部署脚本">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">描述</label>
+      <textarea class="form-textarea" id="f_desc" placeholder="工具的功能描述..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">分类</label>
+        <select class="form-select" id="f_category">
+          <option>部署</option><option>监控</option><option>运维</option><option>开发</option><option>日常</option><option>未分类</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">标签（逗号分隔）</label>
+        <input class="form-input" id="f_tags" placeholder="部署,Java,重启">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">平台</label>
+        <select class="form-select" id="f_platform">
+          <option>Linux</option><option>Windows</option><option>跨平台</option><option>未知</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">语言</label>
+        <input class="form-input" id="f_language" placeholder="Shell / Python / Bat">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">使用方法</label>
+      <input class="form-input" id="f_usage" placeholder="sh deploy.sh <服务名>">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">作者</label>
+        <input class="form-input" id="f_author" placeholder="wzb">
+      </div>
+      <div class="form-group">
+        <label class="form-label">是否目录型</label>
+        <select class="form-select" id="f_isDir">
+          <option value="false">否（单文件）</option>
+          <option value="true">是（目录/多文件）</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="form-submit" id="submitBtn" onclick="submitTool()">提交</button>
+      <button class="form-submit" style="background:var(--text-light)" onclick="resetForm()">重置</button>
+      <button class="form-submit" id="cancelEditBtn" style="background:var(--danger);display:none" onclick="cancelEdit()">取消编辑</button>
+    </div>
+  </div>
+</div>
+
+<!-- 详情模态框 -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- 提示 -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== Supabase 配置 =====
+const SUPABASE_URL = 'https://sihxivtcrbceebmphiye.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_AI1YXr9wzFjTvgtMycMOmg_wbI153TO';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const STORAGE_BUCKET = 'tool-files';
+// ===== 配置结束 =====
+
+let allTools = [];
+let categories = [];
+let activeCategory = '全部';
+let isAdmin = false;
+let editingTool = null;
+let uploadedFileName = null;
+let dirFiles = []; // 目录型工具的文件列表
+
+// ===== 工具列表 =====
+async function loadTools() {
+  try {
+    const { data, error } = await supabase.from('tools').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    allTools = data || [];
+    const cats = new Set();
+    allTools.forEach(t => cats.add(t.category));
+    categories = ['全部', ...Array.from(cats).sort()];
+    renderCategories();
+    filterTools();
+  } catch (e) {
+    console.error('加载失败:', e);
+    showToast('加载失败: ' + e.message, true);
+  }
+}
+
+function renderCategories() {
+  const bar = document.getElementById('catBar');
+  bar.innerHTML = '<span class="cat-label">分类：</span>';
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn' + (cat === activeCategory ? ' active' : '');
+    btn.textContent = cat;
+    btn.onclick = () => { activeCategory = cat; renderCategories(); filterTools(); };
+    bar.appendChild(btn);
+  });
+}
+
+function filterTools() {
+  const kw = document.getElementById('search').value.toLowerCase();
+  const filtered = allTools.filter(t => {
+    const matchCat = activeCategory === '全部' || t.category === activeCategory;
+    const matchKw = !kw || t.name.toLowerCase().includes(kw) ||
+      (t.description || '').toLowerCase().includes(kw) ||
+      (t.tags || []).some(tag => tag.toLowerCase().includes(kw));
+    return matchCat && matchKw;
+  });
+  renderTools(filtered);
+  document.getElementById('stats').textContent = `${filtered.length} / ${allTools.length} 个工具`;
+}
+
+function renderTools(tools) {
+  const grid = document.getElementById('toolGrid');
+  const empty = document.getElementById('emptyState');
+  if (tools.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = tools.map(t => `
+    <div class="tool-card" onclick="showDetail('${t.id}')">
+      <div class="tool-card-header">
+        <div class="tool-name">${esc(t.name)}</div>
+        <span class="tool-platform platform-${t.platform}">${esc(t.platform)}</span>
+      </div>
+      <div class="tool-desc">${esc(t.description || '暂无描述')}</div>
+      <div class="tool-tags">${(t.tags||[]).map(tag=>`<span class="tool-tag">${esc(tag)}</span>`).join('')}</div>
+      <div class="tool-meta">
+        <span>${t.file_size || ''}</span>
+        <span class="tool-lang">${esc(t.language || '')}</span>
+      </div>
+      ${isAdmin ? `
+        <div class="tool-card-admin">
+          <button class="tool-action-btn" onclick="event.stopPropagation();editTool('${t.id}')">✏ 编辑</button>
+          <button class="tool-action-btn danger" onclick="event.stopPropagation();deleteTool('${t.id}')">🗑 删除</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+// ===== 详情弹窗 =====
+async function showDetail(toolId) {
+  const tool = allTools.find(t => t.id === toolId);
+  if (!tool) return;
+  const c = document.getElementById('modalContent');
+
+  // 构建下载链接
+  let downloadHtml = '';
+  if (tool.is_dir) {
+    const dirFiles = tool.dir_files || [];
+    downloadHtml = `
+      <div class="modal-section">
+        <div class="modal-section-title">文件列表（点击下载）</div>
+        <div class="modal-files">
+          ${dirFiles.map(f => {
+            const url = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${tool.file_name}/${f}`;
+            return `<a class="modal-file" href="${url}" download="${f}" target="_blank">${esc(f)}</a>`;
+          }).join('')}
+        </div>
+      </div>`;
+  } else {
+    const url = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${tool.file_name}`;
+    downloadHtml = `
+      <div class="modal-section">
+        <a class="modal-download-btn" href="${url}" download="${tool.file_name}" target="_blank">⬇ 下载文件</a>
+      </div>`;
+  }
+
+  c.innerHTML = `
+    <div class="modal-title">${esc(tool.name)} <span class="tool-platform platform-${tool.platform}">${esc(tool.platform)}</span></div>
+    <div class="modal-section">
+      <div class="modal-info-grid">
+        <span class="modal-info-label">描述</span><span class="modal-info-value">${esc(tool.description||'暂无')}</span>
+        <span class="modal-info-label">分类</span><span class="modal-info-value">${esc(tool.category)}</span>
+        <span class="modal-info-label">语言</span><span class="modal-info-value">${esc(tool.language||'')}</span>
+        <span class="modal-info-label">平台</span><span class="modal-info-value">${esc(tool.platform)}</span>
+        <span class="modal-info-label">大小</span><span class="modal-info-value">${tool.file_size||'未知'}</span>
+        <span class="modal-info-label">作者</span><span class="modal-info-value">${esc(tool.author||'')}</span>
+      </div>
+    </div>
+    ${tool.usage ? `
+      <div class="modal-section">
+        <div class="modal-section-title">使用方法</div>
+        <div class="modal-usage"><button class="copy-btn" onclick="copyCmd(this)">复制</button>${esc(tool.usage)}</div>
+      </div>` : ''}
+    ${downloadHtml}
+  `;
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function copyCmd(btn) {
+  const text = btn.parentElement.textContent.replace('复制','').replace('已复制 ✓','').trim();
+  navigator.clipboard.writeText(text).then(() => { btn.textContent='已复制 ✓'; setTimeout(()=>btn.textContent='复制',1500); });
+}
+
+// ===== 管理功能 =====
+function toggleAdmin() {
+  isAdmin = !isAdmin;
+  const btn = document.getElementById('adminToggle');
+  const form = document.getElementById('adminForm');
+  btn.classList.toggle('active', isAdmin);
+  form.style.display = isAdmin ? 'block' : 'none';
+  if (!isAdmin) resetForm();
+  filterTools(); // 重新渲染卡片（显示/隐藏编辑删除按钮）
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('uploadStatus').textContent = `已选择: ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+  uploadedFileName = file.name;
+}
+
+// 目录型：添加文件上传槽位
+function addDirFileSlot() {
+  const idx = dirFiles.length;
+  dirFiles.push({ file: null, name: '', uploaded: false });
+  const list = document.getElementById('dirFileList');
+  const item = document.createElement('div');
+  item.className = 'dir-file-item';
+  item.innerHTML = `
+    <input type="file" onchange="dirFileChange(${idx}, event)" style="font-size:12px">
+    <span class="name" id="dirName_${idx}">未选择</span>
+    <span class="status" id="dirStatus_${idx}"></span>
+  `;
+  list.appendChild(item);
+}
+
+function dirFileChange(idx, e) {
+  const file = e.target.files[0];
+  dirFiles[idx].file = file;
+  dirFiles[idx].name = file.name;
+  document.getElementById(`dirName_${idx}`).textContent = file.name;
+}
+
+async function uploadSingleFile(file, pathInBucket) {
+  const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(pathInBucket, file, { upsert: true });
+  if (error) throw error;
+  return data;
+}
+
+async function submitTool() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
+
+  try {
+    const id = document.getElementById('f_id').value.trim();
+    const name = document.getElementById('f_name').value.trim();
+    const desc = document.getElementById('f_desc').value.trim();
+    const category = document.getElementById('f_category').value;
+    const tags = document.getElementById('f_tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+    const usage = document.getElementById('f_usage').value.trim();
+    const platform = document.getElementById('f_platform').value;
+    const language = document.getElementById('f_language').value.trim();
+    const author = document.getElementById('f_author').value.trim();
+    const isDir = document.getElementById('f_isDir').value === 'true';
+
+    if (!id || !name) { showToast('请填写工具ID和名称', true); btn.disabled=false; btn.textContent='提交'; return; }
+
+    // 上传文件到 Supabase Storage
+    let fileName = uploadedFileName || id;
+
+    if (isDir) {
+      // 目录型：逐个上传文件到 bucket/<id>/ 目录下
+      const dirFileNames = [];
+      for (let i = 0; i < dirFiles.length; i++) {
+        const df = dirFiles[i];
+        if (!df.file) continue;
+        const path = `${id}/${df.name}`;
+        await uploadSingleFile(df.file, path);
+        dirFileNames.push(df.name);
+        document.getElementById(`dirStatus_${i}`).textContent = '✓';
+        document.getElementById(`dirStatus_${i}`).className = 'status ok';
+      }
+      fileName = id;
+      const dirFilesField = dirFileNames;
+
+      const record = {
+        id, name, description: desc, category, tags, usage, platform, language, author,
+        file_name: fileName, is_dir: true, dir_files: dirFilesField,
+        file_size: dirFileNames.length + ' 个文件', updated_at: new Date().toISOString()
+      };
+
+      if (editingTool) {
+        const { error } = await supabase.from('tools').update(record).eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('tools').insert(record);
+        if (error) throw error;
+      }
+    } else {
+      // 单文件型
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+
+      if (file && !editingTool) {
+        fileName = file.name;
+        await uploadSingleFile(file, fileName);
+      } else if (editingTool && file) {
+        fileName = file.name;
+        await uploadSingleFile(file, fileName);
+      }
+
+      let fileSize = '未知';
+      if (file) fileSize = (file.size / 1024).toFixed(1) + ' KB';
+
+      const record = {
+        id, name, description: desc, category, tags, usage, platform, language, author,
+        file_name: fileName, is_dir: false, dir_files: [],
+        file_size: fileSize, updated_at: new Date().toISOString()
+      };
+
+      if (editingTool) {
+        const { error } = await supabase.from('tools').update(record).eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('tools').insert(record);
+        if (error) throw error;
+      }
+    }
+
+    showToast(editingTool ? '已更新!' : '已添加!');
+    resetForm();
+    await loadTools();
+  } catch (e) {
+    console.error(e);
+    showToast('操作失败: ' + e.message, true);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '提交';
+}
+
+function editTool(toolId) {
+  const tool = allTools.find(t => t.id === toolId);
+  if (!tool) return;
+  editingTool = tool;
+  document.getElementById('formTitle').textContent = '✏ 编辑: ' + tool.name;
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  document.getElementById('f_id').value = tool.id;
+  document.getElementById('f_id').disabled = true;
+  document.getElementById('f_name').value = tool.name;
+  document.getElementById('f_desc').value = tool.description || '';
+  document.getElementById('f_category').value = tool.category;
+  document.getElementById('f_tags').value = (tool.tags || []).join(',');
+  document.getElementById('f_usage').value = tool.usage || '';
+  document.getElementById('f_platform').value = tool.platform;
+  document.getElementById('f_language').value = tool.language || '';
+  document.getElementById('f_author').value = tool.author || '';
+  document.getElementById('f_isDir').value = tool.is_dir ? 'true' : 'false';
+  updateIsDirUI();
+
+  if (!isAdmin) toggleAdmin();
+}
+
+async function deleteTool(toolId) {
+  if (!confirm(`确认删除工具 "${toolId}"？文件也会从存储中删除。`)) return;
+  try {
+    const tool = allTools.find(t => t.id === toolId);
+    // 删除存储中的文件
+    if (tool.is_dir) {
+      // 目录型：逐个删除
+      for (const f of (tool.dir_files || [])) {
+        await supabase.storage.from(STORAGE_BUCKET).remove([`${tool.file_name}/${f}`]);
+      }
+    } else {
+      await supabase.storage.from(STORAGE_BUCKET).remove([tool.file_name]);
+    }
+    // 删除数据库记录
+    const { error } = await supabase.from('tools').delete().eq('id', toolId);
+    if (error) throw error;
+    showToast('已删除');
+    await loadTools();
+  } catch (e) {
+    showToast('删除失败: ' + e.message, true);
+  }
+}
+
+function resetForm() {
+  editingTool = null;
+  document.getElementById('formTitle').textContent = '➕ 添加新工具';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  document.getElementById('f_id').value = '';
+  document.getElementById('f_id').disabled = false;
+  document.getElementById('f_name').value = '';
+  document.getElementById('f_desc').value = '';
+  document.getElementById('f_category').value = '未分类';
+  document.getElementById('f_tags').value = '';
+  document.getElementById('f_usage').value = '';
+  document.getElementById('f_platform').value = '未知';
+  document.getElementById('f_language').value = '';
+  document.getElementById('f_author').value = '';
+  document.getElementById('f_isDir').value = 'false';
+  document.getElementById('uploadStatus').textContent = '';
+  uploadedFileName = null;
+  dirFiles = [];
+  document.getElementById('dirFileList').innerHTML = '';
+  document.getElementById('fileInput').value = '';
+  updateIsDirUI();
+}
+
+function cancelEdit() { resetForm(); }
+
+// 切换目录型 UI
+document.getElementById('f_isDir').addEventListener('change', updateIsDirUI);
+function updateIsDirUI() {
+  const isDir = document.getElementById('f_isDir').value === 'true';
+  document.getElementById('uploadArea').style.display = isDir ? 'none' : 'block';
+  document.getElementById('dirUploadGroup').style.display = isDir ? 'block' : 'none';
+}
+
+// ===== 提示 =====
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// 键盘 ESC 关闭
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// 启动
+loadTools();
+</script>
+</body>
+</html>
